@@ -79,7 +79,7 @@ def update_future600(
         source_df["_position_key"] = _build_position_key(source_df, req_col, pos_col)
         selected = pd.DataFrame({"_position_key": source_df["_position_key"]})
         selected["Candidate Name"] = source_df[name_col] if name_col else pd.NA
-        selected["Offer Date"] = source_df[offer_col] if offer_col else pd.NA
+        selected["WD Offer Created Date"] = source_df[offer_col] if offer_col else pd.NA
         selected["Candidate Start Date"] = source_df[start_col] if start_col else pd.NA
         candidate_sources.append(selected)
 
@@ -89,7 +89,7 @@ def update_future600(
         .agg(
             {
                 "Candidate Name": _first_non_null,
-                "Offer Date": _first_non_null,
+                "WD Offer Created Date": _first_non_null,
                 "Candidate Start Date": _first_non_null,
             }
         )
