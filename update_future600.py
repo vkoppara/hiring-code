@@ -51,6 +51,7 @@ def update_future600(
     future654_file: str,
     future663_file: str,
     output_file: str = "Future600_updated.xlsx",
+    min_completed_date: str | None = None,
 ):
     master_path = Path(master_file)
     output_path = Path(output_file)
@@ -61,6 +62,29 @@ def update_future600(
     master_req_col = _find_column(master_df.columns, ["Job Requisition ID", "Job_Requisition_ID", "job_requisition_id"])
     master_pos_col = _find_column(master_df.columns, ["Position", "All Positions", "All Position"])
     master_df["_position_key"] = _build_position_key(master_df, master_req_col, master_pos_col)
+
+    if min_completed_date:
+        status_col = _find_column(master_df.columns, ["Job Requisition Status", "job_requisition_status"], required=False)
+        completed_col = _find_column(
+            master_df.columns,
+            ["Job Requisition Completed", "Job Requisition Complete", "job_requisition_completed"],
+            required=False,
+        )
+
+        if status_col and completed_col:
+            cutoff = pd.to_datetime(min_completed_date, errors="coerce")
+            if pd.isna(cutoff):
+                raise ValueError(
+                    f"Invalid min_completed_date '{min_completed_date}'. Use YYYY-MM-DD format."
+                )
+
+            status_text = master_df[status_col].astype(str).str.lower()
+            is_closed_filled = status_text.str.contains("closed", na=False) | status_text.str.contains(
+                "filled", na=False
+            )
+            completed_dates = pd.to_datetime(master_df[completed_col], errors="coerce")
+            should_remove = is_closed_filled & completed_dates.notna() & (completed_dates < cutoff)
+            master_df = master_df.loc[~should_remove].copy()
 
     candidate_sources = []
     source_files = [future654_file, future650_file]
@@ -156,6 +180,14 @@ def main():
         default="Future600_updated.xlsx",
         help="Output file name/path (default: Future600_updated.xlsx in master file folder)",
     )
+    parser.add_argument(
+        "--min-completed-date",
+        default=None,
+        help=(
+            "Optional filter cutoff (YYYY-MM-DD). Removes records where Job Requisition Status is closed+filled "
+            "and Job Requisition Completed is older than this date."
+        ),
+    )
     args = parser.parse_args()
 
     output = update_future600(
@@ -164,6 +196,7 @@ def main():
         future654_file=args.future654,
         future663_file=args.future663,
         output_file=args.output,
+        min_completed_date=args.min_completed_date,
     )
     print(f"Updated file written to: {output}")
 
